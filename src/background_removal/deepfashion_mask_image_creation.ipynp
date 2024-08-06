@@ -1,0 +1,206 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "id": "65f4df34-ae56-44c5-8db9-60661b565df2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import json\n",
+    "import cv2\n",
+    "import numpy as np\n",
+    "import os\n",
+    "import matplotlib.pyplot as plt"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "e6b7e0a7-188f-40e8-9580-3cf3174656fb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "image_path = 'datasets/train/image'\n",
+    "annotation_path = 'datasets/train/annos'"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "id": "cb28f482-4d86-4748-aec2-26f858c0e2a8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "color_map = {\n",
+    "    0: [0, 0, 0],        # Background: Black\n",
+    "    1: [0, 128, 0],      # Trousers: Dark Green\n",
+    "    2: [255, 0, 0],      # Short Sleeve Top: Red\n",
+    "    3: [0, 0, 255],      # Long Sleeve Top: Blue\n",
+    "    4: [0, 255, 0],      # Skirt: Lime\n",
+    "    5: [255, 255, 0],    # Dress: Yellow\n",
+    "    6: [255, 165, 0],    # Jacket: Orange\n",
+    "    7: [255, 192, 203],  # Blouse: Pink\n",
+    "    8: [128, 0, 128],    # Suit: Purple\n",
+    "    9: [0, 255, 255],    # Coat: Cyan\n",
+    "    10: [128, 128, 0],   # Vest: Olive\n",
+    "    11: [255, 0, 255],   # Shirt: Magenta\n",
+    "    12: [0, 128, 128],   # Sweater: Teal\n",
+    "    13: [128, 128, 128], # Hoodie: Gray\n",
+    "    14: [0, 255, 255],   # Jumpsuit: Aqua\n",
+    "    15: [255, 255, 255], # Cardigan: White\n",
+    "    16: [128, 0, 0],     # Pants: Maroon\n",
+    "    17: [255, 105, 180], # Shorts: Hot Pink\n",
+    "    18: [105, 105, 105], # Sweatpants: Dim Gray\n",
+    "    19: [173, 216, 230]  # Overalls: Light Blue\n",
+    "}"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "id": "5acf8535-ee39-49f4-9d0e-d2dcfbd49394",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def apply_color_map(mask, color_map):\n",
+    "    # Convert mask to RGB image using the color map\n",
+    "    rgb_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)\n",
+    "    for label, color in color_map.items():\n",
+    "        rgb_mask[mask == label] = color\n",
+    "    return rgb_mask"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "id": "8752d0f4-da91-4626-8ac9-16ad8809d5bd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def overlay_mask_on_image(image, mask, color_map):\n",
+    "    # Convert mask to RGB format\n",
+    "    mask_rgb = apply_color_map(mask, color_map)\n",
+    "    \n",
+    "    # Overlay mask on the image\n",
+    "    overlay = cv2.addWeighted(image, 0.7, mask_rgb, 0.3, 0)\n",
+    "    return overlay"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "c36c7442-df71-4fbf-9b32-6c818000fe93",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def load_json(json_path):\n",
+    "    with open(json_path, 'r') as file:\n",
+    "        data = json.load(file)\n",
+    "    return data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "id": "e7cfac9e-ef72-4b17-b5f4-1384f615f569",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "exclude_keys = ['source','pair_id']\n",
+    "def create_mask_for_whole_image(image_shape, segmentation_cats):\n",
+    "    mask = np.zeros((image_shape[0], image_shape[1]), dtype=np.int8)\n",
+    "    for data in segmentation_cats:\n",
+    "        segmentation = data['data_points']\n",
+    "        class_label = data['class_label']\n",
+    "        for seg in segmentation:\n",
+    "            points = np.array(seg).reshape(-1, 2)\n",
+    "            cv2.fillPoly(mask, [points.astype(np.int32)], class_label)\n",
+    "    return mask"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "id": "5fdec507-139a-47a7-b0e7-a6d50d065767",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def build_mask(image_shape,json_data):\n",
+    "    image_segmentation_data_points = []\n",
+    "    filtered_keys = [key for key in json_data.keys() if key not in exclude_keys]\n",
+    "    for key in filtered_keys:\n",
+    "        segmentation_with_class = {'data_points': json_data[key]['segmentation'],\n",
+    "                                   'category':json_data[key]['category_name'],\n",
+    "                                   'class_label':json_data[key]['category_id']}\n",
+    "        image_segmentation_data_points.append(segmentation_with_class)\n",
+    "    mask = create_mask_for_whole_image(image_shape,image_segmentation_data_points)\n",
+    "    return mask"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 49,
+   "id": "1af80a4c-c876-44d7-a602-d4018c4c060e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "image_count_to_save = 100\n",
+    "image_annot_save_path = 'new'\n",
+    "output_image_shape = (256,256)\n",
+    "for file in sorted(os.listdir(image_path))[0:100]:\n",
+    "    full_path = os.path.join(image_path, file)\n",
+    "    annot_path = os.path.join(annotation_path, file.split('.')[0]+'.json')\n",
+    "    annot_data = load_json(annot_path)\n",
+    "    image = cv2.imread(full_path)\n",
+    "    # image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)\n",
+    "    mask = build_mask(image.shape,annot_data)\n",
+    "    resized_image = cv2.resize(image, output_image_shape, interpolation = cv2.INTER_NEAREST)\n",
+    "    resized_mask = cv2.resize(mask, output_image_shape, interpolation = cv2.INTER_NEAREST)\n",
+    "    image_save_path = os.path.join(image_annot_save_path, file)\n",
+    "    annot_save_path = os.path.join(image_annot_save_path, 'annot-'+file)\n",
+    "    cv2.imwrite(image_save_path, resized_image)\n",
+    "    cv2.imwrite(annot_save_path, resized_mask)\n",
+    "    # overlay = overlay_mask_on_image(image_rgb, mask, color_map)\n",
+    "    # plt.imshow(overlay)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1d818bac-2e15-4766-97dc-6f1f2cce645d",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a851f8bd-d0c0-4607-8091-b72d7411dfa8",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.4"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
