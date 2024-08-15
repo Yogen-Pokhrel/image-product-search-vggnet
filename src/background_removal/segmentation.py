@@ -24,7 +24,7 @@ class ImageSegmentor:
         mask = ImageSegmentor._model.predict(image_array)[0]
         mask = (mask > 0.5).astype(np.uint8)
         
-        
+        #{'trousers': 8, 'short sleeve top': 1, 'long sleeve dress': 11, 'long sleeve top': 2, 'skirt': 9, 'shorts': 7, 'long sleeve outwear': 4, 'vest dress': 12, 'short sleeve dress': 10, 'vest': 5, 'sling dress': 13, 'short sleeve outwear': 3, 'sling': 6}
         # Resize mask to original image size
         mask_resized = cv.resize(mask, (width, height))
         
