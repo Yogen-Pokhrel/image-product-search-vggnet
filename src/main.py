@@ -17,7 +17,7 @@ def generate_embeddings():
 
 
 # clearCollection()
-generate_embeddings()
+# generate_embeddings()
 image_path = image_dir + "/000001.jpg"
 image = image_loader.load_image(image_path)
 embedding = extractor.embedding_extraction(image)
