@@ -2,7 +2,7 @@ import tensorflow as tf
 import cv2 as cv
 import numpy as np
 from utils.logging_config import logger
-from utils.image import load_image
+from utils.image_loader import load_image
 
 class ImageSegmentor:
     _model = None
