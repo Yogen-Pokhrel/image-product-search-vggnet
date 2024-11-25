@@ -20,8 +20,9 @@ def load_image(image_path: str):
     logger.debug(f"Loading image from directory {image_path}")
     if os.path.isfile(image_path):
         try:
-            image = cv.imread(image_path, cv.cvtColor(cv.COLOR_BGR2RGB))
-            return image
+            image = cv.imread(image_path)
+            image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+            return image_rgb
         except IOError:
             logger.warning(f"Cannot open image file {image}")
     else:
